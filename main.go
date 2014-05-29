@@ -32,7 +32,7 @@ var (
 //initFlags is responsible for intializing and parsing the command line flags structures
 func initFlags() {
 	flag.StringVar(&BootstrapNode, "bootstrap", "", "the botstrap peer node (IP:Port)")
-	flag.IntVar(&ListenPort, "lport", DefaultPort, "the port to listen for incoming connections on")
+	flag.IntVar(&ListenPort, "lport", DefaultPort, "the address to listen for incoming connections on")
 	flag.StringVar(&PeerListFilename, "peers", "", "A filename containing a comma separated list of known peers")
 	flag.IntVar(&MaxConnections, "maxcon", DefaultMaxConnections, "The maximum number of persistent peer connections")
 	flag.StringVar(&LogFilename, "log", "", "The path of the file where log data should be sent")
