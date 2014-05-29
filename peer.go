@@ -192,7 +192,7 @@ func (n *Node) Listen() error {
 func (n *Node) Serve() error {
 	defer n.listener.Close()
 	var tempDelay time.Duration
-	log.Printf("listening for incoming connections\n")
+	log.Printf("listening for incoming connections on %v\n", n.listener.Addr().(*net.TCPAddr))
 	for {
 		rwc, e := n.listener.AcceptTCP()
 		//deal with potential temporary errors by sleeping for a predeteremined amount of time
@@ -251,11 +251,12 @@ func (n *Node) ConnectPeers() {
 			continue
 		}
 		addr := list[rand.Intn(len(list))]
-		log.Printf("Attempting to connect to peer (%v)\n", addr)
+		log.Printf("attempting to connect to peer (%v)\n", addr)
 
 		conn, err := net.DialTCP("tcp", nil, addr)
 		if err != nil {
 			//unable to connect, move it to the stale list
+			log.Printf("unable to connect to peer (%v)\n", addr)
 			n.StaleAddrs.Add(addr)
 			n.KnownAddrs.Remove(addr)
 			continue
