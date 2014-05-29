@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +37,7 @@ type Node struct {
 }
 
 var (
+	//rwPool is used to provide a pool of ReadWriters() to prevent wasted resources
 	rwPool sync.Pool
 )
 
@@ -73,18 +75,17 @@ func (n *Node) Listen() error {
 //Serve accepts incoming connections
 func (n *Node) Serve() error {
 	defer n.listener.Close()
-	var tempDelay time.Duration
+
 	log.Printf("listening for incoming connections on %v\n", n.listener.Addr().(*net.TCPAddr))
+
+	tempDelay := 2 * time.Millisecond
 	for {
 		rwc, e := n.listener.AcceptTCP()
-		//deal with potential temporary errors by sleeping for a predeteremined amount of time
 		if e != nil {
+			//if there is an error and it is temporay, wait a certain amount of time before retrying
+			//if the retry fails, double the wait time & repeat.  Max wait time is 1 second
 			if ne, ok := e.(net.Error); ok && ne.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = 5 * time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
+				tempDelay *= 2
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
@@ -94,7 +95,7 @@ func (n *Node) Serve() error {
 			}
 			return e
 		}
-		tempDelay = 0
+		tempDelay = 2 * time.Millisecond
 		//initialize our new connection
 		con, err := n.newConn(rwc)
 		if err != nil {
@@ -113,6 +114,7 @@ func (n *Node) Serve() error {
 }
 
 func (n *Node) ConnectPeers() {
+	//delay is used for sleeping when there are no valid peers to connect to
 	delay := 1 * time.Second
 	list := make([]*net.TCPAddr, 0, 100)
 	for {
@@ -243,12 +245,11 @@ func (c *conn) serve() {
 			c.server.KnownAddrs.RemoveStrict(c.remoteAddr)
 			break
 		}
-		line = line[:len(line)-1]
-		split := strings.Split(line, " ")
-		if len(split) < 1 {
-			//no command sent
+		line = strings.TrimSpace(line)
+		if len(line) < 1 {
 			continue
 		}
+		split := strings.Split(line, " ")
 
 		cmd = split[0]
 		if len(split) > 1 {
@@ -256,7 +257,6 @@ func (c *conn) serve() {
 		} else {
 			args = nil
 		}
-		log.Printf("%v : %v", cmd, args)
 		switch {
 		case cmd == "STALE":
 			//handle this
@@ -281,6 +281,8 @@ func (c *conn) serve() {
 				continue
 			}
 			c.server.KnownAddrs.UpdatePort(c.remoteAddr, port)
+		default:
+			log.Printf("Unknown command (%s)\n", cmd)
 		}
 		c.buf.Flush()
 	}
